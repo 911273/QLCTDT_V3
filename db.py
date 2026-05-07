@@ -382,6 +382,12 @@ class Database:
         from repositories.tailieu_repository import TaiLieuRepository
         from repositories.noidung_repository import NoiDungRepository
         from repositories.rubric_repository import RubricRepository
+        from repositories.config_repository import ConfigRepository
+        from repositories.audit_repository import AuditRepository
+        from repositories.draft_repository import DraftRepository
+        from repositories.import_history_repository import ImportHistoryRepository
+        from repositories.ui_metadata_repository import UIMetadataRepository
+        from repositories.statistics_repository import StatisticsRepository
 
         self.khoa_repo = KhoaRepository(self)
         self.gv_repo = GiangVienRepository(self)
@@ -391,6 +397,12 @@ class Database:
         self.tailieu_repo = TaiLieuRepository(self)
         self.noidung_repo = NoiDungRepository(self)
         self.rubric_repo = RubricRepository(self)
+        self.config_repo = ConfigRepository(self)
+        self.audit_repo = AuditRepository(self)
+        self.draft_repo = DraftRepository(self)
+        self.import_history_repo = ImportHistoryRepository(self)
+        self.ui_meta_repo = UIMetadataRepository(self)
+        self.statistics_repo = StatisticsRepository(self)
 
         # P2-3: Background thread for auto_backup
         logger.info("Initializing background services...")
@@ -1194,91 +1206,70 @@ class Database:
     # ------------------------------------------------------------- CONFIG / SETTINGS
     def get_config(self, key, default=None):
         """Lấy giá trị cấu hình từ bảng config."""
-        res = self.conn.execute("SELECT value FROM config WHERE key=?", (key,)).fetchone()
-        return res['value'] if res else default
+        repo = getattr(self, "config_repo", None)
+        if repo is None:
+            from repositories.config_repository import ConfigRepository
+            repo = ConfigRepository(self)
+        return repo.get(key, default)
 
     def set_config(self, key, value):
         """Lưu hoặc cập nhật giá trị cấu hình."""
-        with self.transaction():
-            self.conn.execute("INSERT OR REPLACE INTO config (key, value) VALUES (?, ?)", (key, str(value)))
+        repo = getattr(self, "config_repo", None)
+        if repo is None:
+            from repositories.config_repository import ConfigRepository
+            repo = ConfigRepository(self)
+        repo.set(key, value)
         
 
     # ── Accuracy & Integrity (Audit Trail) ───────────────────────────────────
     # FIXED: P3-2: Structured audit log
     def log_audit(self, hp_id, table_name, field_name, old_val, new_val, action='UPDATE'):
         """Ghi lại lịch sử thay đổi dữ liệu một cách có cấu trúc."""
-        try:
-            with self.transaction():
-                sql = """
-                    INSERT INTO audit_log (hp_id, table_name, field_name, old_value, new_value, action, updated_at)
-                    VALUES (?, ?, ?, ?, ?, ?, ?)
-                """
-                self.conn.execute(sql, (
-                    hp_id, table_name, field_name, 
-                    str(old_val) if old_val is not None else None, 
-                    str(new_val) if new_val is not None else None,
-                    action, datetime.now().strftime('%Y-%m-%d %H:%M:%S')
-                ))
-        except Exception as e:
-            print(f"Lỗi ghi audit_log: {e}")
+        details = {
+            'field_name': field_name,
+            'old_value': old_val,
+            'new_value': new_val,
+        }
+        self.audit_repo.log(hp_id, table_name, action=action, details=details)
 
     def get_audit_history(self, hp_id=None, limit=100):
         """Lấy lịch sử thay đổi."""
-        if hp_id:
-            return self.conn.execute(
-                "SELECT * FROM audit_log WHERE hp_id=? ORDER BY updated_at DESC LIMIT ?", (hp_id, limit)
-            ).fetchall()
-        return self.conn.execute(
-            "SELECT * FROM audit_log ORDER BY updated_at DESC LIMIT ?", (limit,)
-        ).fetchall()
+        return self.audit_repo.get_history(hp_id=hp_id, limit=limit)
         
 
     # ── Auto-Save (Drafts) ──────────────────────────────────────────────────
     def save_draft(self, hp_id, data_json):
         """Lưu bản nháp với thời gian hết hạn (P3-1: 7 ngày)."""
-        with self.transaction():
-            now = datetime.now()
-            expires = (now + timedelta(days=7)).strftime('%Y-%m-%d %H:%M:%S')
-            sql = "INSERT OR REPLACE INTO temp_draft (hp_id, data_json, updated_at, expires_at) VALUES (?, ?, ?, ?)"
-            self.conn.execute(sql, (hp_id, data_json, now.strftime('%Y-%m-%d %H:%M:%S'), expires))
+        self.draft_repo.save(hp_id, data_json)
         
     def cleanup_expired_drafts(self):
         """Xóa các bản nháp đã quá hạn (P3-1)."""
         try:
-            with self.transaction():
-                now = datetime.now().strftime('%Y-%m-%d %H:%M:%S')
-                self.conn.execute("DELETE FROM temp_draft WHERE expires_at < ?", (now,))
+            repo = getattr(self, "draft_repo", None)
+            if repo is None:
+                from repositories.draft_repository import DraftRepository
+                repo = DraftRepository(self)
+            repo.cleanup_expired()
         except Exception as e:
             print(f"Lỗi dọn dẹp bản nháp: {e}")
         
 
     def get_draft(self, hp_id):
         """Lấy bản nháp."""
-        row = self.conn.execute("SELECT * FROM temp_draft WHERE hp_id = ?", (hp_id,)).fetchone()
-        return dict(row) if row else None
+        return self.draft_repo.get(hp_id)
 
     def delete_draft(self, hp_id):
         """Xóa bản nháp."""
-        with self.transaction():
-            self.conn.execute("DELETE FROM temp_draft WHERE hp_id = ?", (hp_id,))
+        self.draft_repo.delete(hp_id)
         
     # ── Import/Export History ──────────────────────────────────────────────
     def add_import_export_log(self, type, total, success, error, details_json, user_action=''):
         """Ghi lại lịch sử nhập/xuất."""
-        with self.transaction():
-            self.conn.execute("""
-                INSERT INTO import_export_history 
-                (type, timestamp, total_files, success_count, error_count, details_json, user_action)
-                VALUES (?, ?, ?, ?, ?, ?, ?)
-            """, (type, datetime.now().strftime('%Y-%m-%d %H:%M:%S'), 
-                  total, success, error, details_json, user_action))
+        return self.import_history_repo.add(type, total, success, error, details_json, user_action)
 
     def get_import_export_history(self, limit=50):
         """Lấy danh sách lịch sử."""
-        rows = self.conn.execute(
-            "SELECT * FROM import_export_history ORDER BY timestamp DESC LIMIT ?", (limit,)
-        ).fetchall()
-        return [dict(r) for r in rows]
+        return self.import_history_repo.get_history(limit=limit)
 
     # ── ui_field_meta ──────────────────────────────────────────────────────
 
@@ -1287,20 +1278,7 @@ class Database:
         Trả về dict {field_key: {nhan_tuy_bien, thu_tu, an_truong}}
         cho toàn bộ section. Dùng để overlay lên widget gốc.
         """
-        self.conn.row_factory = sqlite3.Row
-        rows = self.conn.execute(
-            "SELECT field_key, nhan_tuy_bien, thu_tu, an_truong "
-            "FROM ui_field_meta WHERE section_key=?",
-            (section_key,)
-        ).fetchall()
-        return {
-            r['field_key']: {
-                'nhan_tuy_bien': r['nhan_tuy_bien'],
-                'thu_tu': r['thu_tu'],
-                'an_truong': bool(r['an_truong'])
-            }
-            for r in rows
-        }
+        return self.ui_meta_repo.get_field_meta(section_key)
 
     # ── Legacy UI Management Removed ───────────────────────────────────────
     # All methods related to ui_sections, ui_field_meta, and ui_field_extra 

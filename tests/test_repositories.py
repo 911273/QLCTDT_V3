@@ -20,6 +20,14 @@ CREATE TABLE IF NOT EXISTS khoa (
     ten TEXT
 );
 
+CREATE TABLE IF NOT EXISTS giang_vien (
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    ho_ten TEXT NOT NULL,
+    email TEXT,
+    sdt TEXT,
+    khoa_id INTEGER REFERENCES khoa(id)
+);
+
 CREATE TABLE IF NOT EXISTS hoc_phan (
     id INTEGER PRIMARY KEY AUTOINCREMENT,
     ma TEXT,
@@ -92,7 +100,50 @@ CREATE TABLE IF NOT EXISTS ctdt_hoc_phan (
 CREATE TABLE IF NOT EXISTS temp_draft (
     hp_id INTEGER PRIMARY KEY REFERENCES hoc_phan(id) ON DELETE CASCADE,
     data_json TEXT,
-    updated_at TEXT
+    updated_at TEXT,
+    expires_at TEXT
+);
+
+CREATE TABLE IF NOT EXISTS config (
+    key TEXT PRIMARY KEY,
+    value TEXT
+);
+
+CREATE TABLE IF NOT EXISTS audit_log (
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    hp_id INTEGER,
+    table_name TEXT,
+    record_id INTEGER,
+    action TEXT,
+    details TEXT,
+    created_at TEXT NOT NULL
+);
+
+CREATE TABLE IF NOT EXISTS import_export_history (
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    type TEXT NOT NULL,
+    timestamp TEXT NOT NULL,
+    total_files INTEGER DEFAULT 0,
+    success_count INTEGER DEFAULT 0,
+    error_count INTEGER DEFAULT 0,
+    details_json TEXT,
+    user_action TEXT
+);
+
+CREATE TABLE IF NOT EXISTS ui_field_meta (
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    section_key TEXT,
+    field_key TEXT,
+    nhan_tuy_bien TEXT,
+    thu_tu INTEGER,
+    an_truong INTEGER DEFAULT 0
+);
+
+CREATE TABLE IF NOT EXISTS chuong_trinh_dao_tao (
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    ten TEXT,
+    bac TEXT,
+    khoa_id INTEGER
 );
 """
 
@@ -123,6 +174,9 @@ class TestHocPhanRepository(unittest.TestCase):
         self.conn = _make_conn()
         from repositories.hoc_phan_repository import HocPhanRepository
         self.repo = HocPhanRepository(FakeDB(self.conn))
+
+    def tearDown(self):
+        self.conn.close()
     
     def test_create_and_get(self):
         hp_id = self.repo.create({'ma': 'CS101', 'ten_viet': 'Lập trình C'})
@@ -157,6 +211,9 @@ class TestCLORepository(unittest.TestCase):
         self.repo = CLORepository(FakeDB(self.conn))
         # Create parent HP to satisfy FK
         self.hp_id = self.conn.execute("INSERT INTO hoc_phan (ten_viet) VALUES ('Parent')").lastrowid
+
+    def tearDown(self):
+        self.conn.close()
     
     def test_set_all(self):
         self.repo.set_all(self.hp_id, [{'ma': 'CLO1'}, {'ma': 'CLO2'}])
@@ -173,6 +230,9 @@ class TestNoiDungRepository(unittest.TestCase):
         self.repo = NoiDungRepository(FakeDB(self.conn))
         # Create parent HP
         self.hp_id = self.conn.execute("INSERT INTO hoc_phan (ten_viet) VALUES ('Parent')").lastrowid
+
+    def tearDown(self):
+        self.conn.close()
     
     def test_set_all_and_get(self):
         self.repo.set_all(self.hp_id, 'LT', [{'tieu_de': 'C1'}, {'tieu_de': 'C2'}])
@@ -187,6 +247,111 @@ class TestNoiDungRepository(unittest.TestCase):
         self.repo.delete_recursive(p_id)
         count = self.conn.execute("SELECT COUNT(*) FROM noi_dung").fetchone()[0]
         self.assertEqual(count, 0)
+
+
+class TestInfrastructureRepositories(unittest.TestCase):
+    def setUp(self):
+        self.conn = _make_conn()
+        self.db = FakeDB(self.conn)
+
+    def tearDown(self):
+        self.conn.close()
+
+    def test_config_repository_get_set(self):
+        from repositories.config_repository import ConfigRepository
+        repo = ConfigRepository(self.db)
+
+        self.assertEqual(repo.get("missing", "fallback"), "fallback")
+        repo.set("theme", "flatly")
+
+        self.assertEqual(repo.get("theme"), "flatly")
+        self.assertEqual(repo.get_many(["theme"]), {"theme": "flatly"})
+
+    def test_audit_repository_log_and_history(self):
+        from repositories.audit_repository import AuditRepository
+        repo = AuditRepository(self.db)
+
+        audit_id = repo.log(1, "hoc_phan", details={"field": "ten_viet"})
+        rows = repo.get_history(hp_id=1)
+
+        self.assertIsInstance(audit_id, int)
+        self.assertEqual(len(rows), 1)
+        self.assertEqual(rows[0]["table_name"], "hoc_phan")
+
+    def test_draft_repository_save_get_delete(self):
+        from repositories.draft_repository import DraftRepository
+        repo = DraftRepository(self.db)
+        hp_id = self.conn.execute("INSERT INTO hoc_phan (ten_viet) VALUES ('Parent')").lastrowid
+
+        repo.save(hp_id, '{"sec1": {}}')
+        draft = repo.get(hp_id)
+        self.assertEqual(draft["data_json"], '{"sec1": {}}')
+
+        repo.delete(hp_id)
+        self.assertIsNone(repo.get(hp_id))
+
+    def test_import_history_repository_add_and_list(self):
+        from repositories.import_history_repository import ImportHistoryRepository
+        repo = ImportHistoryRepository(self.db)
+
+        log_id = repo.add("IMPORT", 3, 2, 1, "[]", "manual")
+        rows = repo.get_history()
+
+        self.assertIsInstance(log_id, int)
+        self.assertEqual(rows[0]["type"], "IMPORT")
+        self.assertEqual(rows[0]["success_count"], 2)
+
+    def test_ui_metadata_repository(self):
+        from repositories.ui_metadata_repository import UIMetadataRepository
+        self.conn.execute(
+            """
+            INSERT INTO ui_field_meta(section_key, field_key, nhan_tuy_bien, thu_tu, an_truong)
+            VALUES ('sec1', 'ma', 'Mã HP', 1, 0)
+            """
+        )
+        repo = UIMetadataRepository(self.db)
+
+        meta = repo.get_field_meta("sec1")
+        self.assertEqual(meta["ma"]["nhan_tuy_bien"], "Mã HP")
+        self.assertFalse(meta["ma"]["an_truong"])
+
+    def test_statistics_repository_dashboard(self):
+        from repositories.statistics_repository import StatisticsRepository
+        self.conn.execute("INSERT INTO khoa (ten) VALUES ('CNTT')")
+        self.conn.execute("INSERT INTO giang_vien (ho_ten) VALUES ('GV A')")
+        self.conn.execute("INSERT INTO chuong_trinh_dao_tao (ten) VALUES ('CTDT A')")
+        self.conn.execute("INSERT INTO hoc_phan (ten_viet) VALUES ('HP A')")
+
+        stats = StatisticsRepository(self.db).get_dashboard_stats()
+        self.assertEqual(stats["total_hp"], 1)
+        self.assertEqual(stats["total_khoa"], 1)
+        self.assertEqual(stats["total_gv"], 1)
+        self.assertEqual(stats["total_ctdt"], 1)
+
+
+class TestCourseCRUDService(unittest.TestCase):
+    def setUp(self):
+        self.conn = _make_conn()
+        from repositories.hoc_phan_repository import HocPhanRepository
+        from services.course_crud_service import CourseCRUDService
+        self.repo = HocPhanRepository(FakeDB(self.conn))
+        self.service = CourseCRUDService(self.repo)
+
+    def tearDown(self):
+        self.conn.close()
+
+    def test_course_crud_flow(self):
+        hp_id = self.service.create_course({"ma": "CRUD101", "ten_viet": "CRUD"})
+        self.assertEqual(self.service.get_course(hp_id)["ma"], "CRUD101")
+
+        self.service.update_course(hp_id, {"ten_viet": "CRUD Updated"})
+        self.assertEqual(self.service.get_course(hp_id)["ten_viet"], "CRUD Updated")
+
+        courses = self.service.list_courses()
+        self.assertEqual(len(courses), 1)
+
+        self.service.delete_course(hp_id)
+        self.assertIsNone(self.service.get_course(hp_id))
 
 if __name__ == '__main__':
     unittest.main()

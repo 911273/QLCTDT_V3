@@ -5,6 +5,7 @@ from sections.base_section import (BaseSection, ScrollableFrame, RowEditDialog,
                                     make_tree, CLR_PRIMARY2, CLR_HDR, CLR_BG)
 from utils.ui_utils import AutocompleteCombobox, show_modern_warning
 from sections.registry import register_section
+from core.constants import CONTACT_HOURS_PER_CREDIT
 
 TRINH_DO  = ['Đại học', 'Thạc sĩ', 'Tiến sĩ']
 LOAI_HP   = ['Bắt buộc', 'Tự chọn']
@@ -295,7 +296,7 @@ class Sec1ThongTin(BaseSection):
         """Tính theo quy tắc chung: 1 TC = 15 tiết lên lớp."""
         try:
             tc = int(self.v_tc.get() or 3)
-            tong_quy_dinh = tc * 15
+            tong_quy_dinh = tc * CONTACT_HOURS_PER_CREDIT
             
             # Tính tổng giờ tiếp xúc
             contact_keys = ['gio_lt', 'gio_th_tn', 'gio_tl', 'gio_bt', 'gio_tieu_luan', 'gio_thuc_tap']

@@ -2,6 +2,7 @@
 # FIXED: C-02, C-03, C-04, C-05, M-05, N-07 — Toàn bộ query chuyển về bảng production
 import json
 from datetime import datetime
+from core.constants import CONTACT_HOURS_PER_CREDIT
 from services.validation_service import ValidationService
 
 
@@ -86,10 +87,10 @@ class DeCuongValidator:
         gio_th = int(hp.get('gio_th_tn') or 0)
         gio_tl = int(hp.get('gio_tl') or 0)
         tong_len_lop = gio_lt + gio_bt + gio_th + gio_tl
-        expected = tc * 15
+        expected = tc * CONTACT_HOURS_PER_CREDIT
         if tong_len_lop < expected:
             res.warnings.append(
-                f"Tổng giờ lên lớp ({tong_len_lop}) thấp hơn tiêu chuẩn tín chỉ ({tc} TC × 15 = {expected} tiết)."
+                f"Tổng giờ lên lớp ({tong_len_lop}) thấp hơn tiêu chuẩn tín chỉ ({tc} TC × {CONTACT_HOURS_PER_CREDIT} = {expected} tiết)."
             )
 
         # Kiểm tra GV phụ trách

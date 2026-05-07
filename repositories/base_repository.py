@@ -33,7 +33,8 @@ class BaseRepository:
             'noi_dung', 'ke_hoach_kiem_tra', 'lich_su_cap_nhat', 'word_template',
             'rubric_danh_gia', 'rubric_tieu_chi', 'chuong_trinh_dao_tao', 'chuyen_nganh',
             'ctdt_hoc_phan', 'ctdt_po', 'ctdt_plo', 'ctdt_pi', 'config', 'temp_draft',
-            'audit_log', 'chinh_sach_hoc_phan', 'checklist_tu_kiem_tra'
+            'audit_log', 'chinh_sach_hoc_phan', 'checklist_tu_kiem_tra',
+            'import_export_history', 'ui_field_meta'
         }
 
     def _log_audit(self, action: str, table: str, record_id: int, details: dict = None):
@@ -144,7 +145,8 @@ class BaseRepository:
         sql = f"INSERT INTO [{table}]({','.join(cols_escaped)}) VALUES({placeholders})"
         cur = self.conn.execute(sql, list(safe.values()))
         new_id = cur.lastrowid
-        self._log_audit("INSERT", table, new_id, safe)
+        if table != 'audit_log':
+            self._log_audit("INSERT", table, new_id, safe)
         return new_id
 
 
@@ -164,7 +166,8 @@ class BaseRepository:
             f"UPDATE [{table}] SET {sets} WHERE id=?",
             list(safe.values()) + [id_]
         )
-        self._log_audit("UPDATE", table, id_, safe)
+        if table != 'audit_log':
+            self._log_audit("UPDATE", table, id_, safe)
 
 
 

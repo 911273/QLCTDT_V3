@@ -1,5 +1,6 @@
 # services/word_builder/checklist_builder.py
 from docx.enum.text import WD_ALIGN_PARAGRAPH
+from core.constants import CONTACT_HOURS_PER_CREDIT
 
 class ChecklistBuilder:
     @staticmethod
@@ -38,7 +39,7 @@ class ChecklistBuilder:
         ])
 
         ChecklistBuilder._add_section(doc, "III. NỘI DUNG & KẾ HOẠCH TỰ HỌC", [
-            "Giờ lên lớp tối thiểu = số TC × 15; giờ tự học khai báo riêng theo đề cương",
+            f"Giờ lên lớp tối thiểu = số TC × {CONTACT_HOURS_PER_CREDIT}; giờ tự học khai báo riêng theo đề cương",
             "Mỗi tuần/chương có nhiệm vụ tự học cụ thể",
             "Ít nhất 1 giáo trình chính + TLTK cập nhật 5–10 năm",
             "Có link học liệu số (nếu có)"

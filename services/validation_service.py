@@ -1,12 +1,13 @@
 # services/validation_service.py
 import re
+from core.constants import CONTACT_HOURS_PER_CREDIT
 
 class ValidationService:
     @staticmethod
     def check_total_hours(hp_data):
         try:
             tc = int(hp_data.get('so_tin_chi') or 3)
-            expected_hours = tc * 15
+            expected_hours = tc * CONTACT_HOURS_PER_CREDIT
             lt = float(hp_data.get('gio_lt') or 0)
             bt = float(hp_data.get('gio_bt') or 0)
             th = float(hp_data.get('gio_th_tn') or 0)
@@ -76,7 +77,7 @@ class ValidationService:
 
             # FIXED M-05: 1 TC = 15 tiết lên lớp (LT+BT+TH+TL) — khớp với deccuong_service
             total_len_lop = lt + bt + th + tl
-            expected_min = tc * 15
+            expected_min = tc * CONTACT_HOURS_PER_CREDIT
 
             if total_len_lop > 0 and total_len_lop < expected_min:
                 issues.append({

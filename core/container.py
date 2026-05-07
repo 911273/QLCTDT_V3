@@ -34,6 +34,7 @@ class AppContainer:
         self._events = None
         self._validation_svc = None
         self._deccuong_svc = None
+        self._course_crud_svc = None
         
         # Repositories
         self._hp_repo = None
@@ -44,6 +45,12 @@ class AppContainer:
         self._noidung_repo = None
         self._rubric_repo = None
         self._baidanhgia_repo = None
+        self._config_repo = None
+        self._audit_repo = None
+        self._draft_repo = None
+        self._import_history_repo = None
+        self._ui_meta_repo = None
+        self._statistics_repo = None
 
 
     # ── Data Layer ────────────────────────────────────────────────────────────
@@ -122,6 +129,14 @@ class AppContainer:
             self._deccuong_svc = DeCuongService(self.db)
         return self._deccuong_svc
 
+    @property
+    def course_crud_svc(self):
+        """Lazy CourseCRUDService."""
+        if self._course_crud_svc is None:
+            from services.course_crud_service import CourseCRUDService
+            self._course_crud_svc = CourseCRUDService(self.hp_repo)
+        return self._course_crud_svc
+
     # ── Repositories ──────────────────────────────────────────────────────────
 
     @property
@@ -172,6 +187,48 @@ class AppContainer:
             from repositories.rubric_repository import RubricRepository
             self._rubric_repo = RubricRepository(self.db)
         return self._rubric_repo
+
+    @property
+    def config_repo(self):
+        if self._config_repo is None:
+            from repositories.config_repository import ConfigRepository
+            self._config_repo = ConfigRepository(self.db)
+        return self._config_repo
+
+    @property
+    def audit_repo(self):
+        if self._audit_repo is None:
+            from repositories.audit_repository import AuditRepository
+            self._audit_repo = AuditRepository(self.db)
+        return self._audit_repo
+
+    @property
+    def draft_repo(self):
+        if self._draft_repo is None:
+            from repositories.draft_repository import DraftRepository
+            self._draft_repo = DraftRepository(self.db)
+        return self._draft_repo
+
+    @property
+    def import_history_repo(self):
+        if self._import_history_repo is None:
+            from repositories.import_history_repository import ImportHistoryRepository
+            self._import_history_repo = ImportHistoryRepository(self.db)
+        return self._import_history_repo
+
+    @property
+    def ui_meta_repo(self):
+        if self._ui_meta_repo is None:
+            from repositories.ui_metadata_repository import UIMetadataRepository
+            self._ui_meta_repo = UIMetadataRepository(self.db)
+        return self._ui_meta_repo
+
+    @property
+    def statistics_repo(self):
+        if self._statistics_repo is None:
+            from repositories.statistics_repository import StatisticsRepository
+            self._statistics_repo = StatisticsRepository(self.db)
+        return self._statistics_repo
 
 
     # ── Lifecycle ─────────────────────────────────────────────────────────────

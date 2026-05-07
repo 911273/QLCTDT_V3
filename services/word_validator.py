@@ -1,14 +1,12 @@
 # services/word_validator.py
 import re
+from core.constants import CONTACT_HOURS_PER_CREDIT
 
 class DCCTValidationError(Exception):
     def __init__(self, errors):
         self.errors = errors
         message = "Validation Failed:\n" + "\n".join([f"[{e['code']}] {e['field']}: {e['message']}" for e in errors])
         super().__init__(message)
-
-CONTACT_HOURS_PER_CREDIT = 15
-
 
 def _as_number(value, default=0):
     try:
