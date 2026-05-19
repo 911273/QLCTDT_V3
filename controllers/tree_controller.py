@@ -1,5 +1,6 @@
 # controllers/tree_controller.py
 import tkinter as tk
+from ui.widgets.searchable_tree import restripe_tree
 
 class TreeController:
     def __init__(self, tree_widget, db, hp_id_map_callback=None):
@@ -29,6 +30,7 @@ class TreeController:
 
         if self.hp_id_map_callback:
             self.hp_id_map_callback(self._hp_id_map)
+        restripe_tree(self.tree)
 
     def _get_all_iids(self, parent):
         res = []
@@ -198,6 +200,7 @@ class TreeController:
             
             if self.hp_id_map_callback:
                 self.hp_id_map_callback(self._hp_id_map)
+            restripe_tree(self.tree)
 
     def _load_search_results(self, kw, nature):
         nature_clause = " AND hp.tinh_chat = ?" if nature != '-- Tất cả --' else ""

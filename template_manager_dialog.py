@@ -11,6 +11,9 @@ import tkinter as tk
 from tkinter import messagebox, filedialog
 import ttkbootstrap as tb
 from ttkbootstrap.constants import *
+from ui.theme.design_system import UI_THEME
+from ui.widgets.dialog_base import configure_dialog
+from ui.widgets.searchable_tree import apply_tree_defaults, restripe_tree
 
 
 class TemplateManagerDialog(tb.Toplevel):
@@ -36,12 +39,7 @@ class TemplateManagerDialog(tb.Toplevel):
 
         # Window setup
         self.title("📋 Quản lý Template Word")
-        self.geometry("920x600")
-        self.minsize(750, 480)
-        self.resizable(True, True)
-        self.transient(parent)
-        self.grab_set()
-        self._center()
+        configure_dialog(self, parent, width=920, height=600, min_width=750, min_height=480)
         self._build_ui()
         self._refresh_list()
 
@@ -54,7 +52,7 @@ class TemplateManagerDialog(tb.Toplevel):
     # ── UI Build ─────────────────────────────────────────────────────────────
 
     def _build_ui(self):
-        self.configure(padx=12, pady=10)
+        self.configure(padx=UI_THEME["padding_x"], pady=UI_THEME["padding_y"])
 
         # Title bar
         hdr = tb.Frame(self, bootstyle='dark')
@@ -79,6 +77,7 @@ class TemplateManagerDialog(tb.Toplevel):
             height=14,
             bootstyle='primary'
         )
+        apply_tree_defaults(self.tree)
         self.tree.heading('ten', text='Tên Template')
         self.tree.heading('default', text='Mặc định')
         self.tree.heading('ngay', text='Ngày tạo')
@@ -186,9 +185,10 @@ class TemplateManagerDialog(tb.Toplevel):
                                  t['ten'],
                                  '✅ Có' if t.get('la_mac_dinh') else '-',
                                  (t.get('ngay_tao') or '')[:10]
-                             ),
+                              ),
                              tags=(tag,))
         self.tree.tag_configure('default', foreground='#a6e3a1')
+        restripe_tree(self.tree)
 
     def _get_selected_id(self) -> int:
         sel = self.tree.selection()

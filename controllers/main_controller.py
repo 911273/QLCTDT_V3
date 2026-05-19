@@ -95,6 +95,28 @@ class MainController:
             self.view.show_error("Lỗi xuất hàng loạt", str(e))
             return None
 
+    def export_excel(self, hp_id, out_path, template_id=None):
+        try:
+            return self.ie_service.export_excel_template(hp_id, out_path, template_id)
+        except Exception as e:
+            self.view.show_error("Loi xuat Excel", str(e))
+            return False
+
+    def export_excel_batch(self, hp_ids, dir_path, template_id=None):
+        def _on_progress(cur, total, name, phase):
+            self.view.update_progress(cur, total, f"Dang xuat Excel: {name}")
+
+        self.view.show_progress_dialog("Dang xuat Excel hang loat...")
+        try:
+            results = self.ie_service.export_excel_batch(hp_ids, dir_path, template_id, _on_progress)
+            self.view.close_progress_dialog()
+            self.view.show_info("Ket qua", f"Da xuat xong {results['success']} file Excel. Loi {results['errors']} file.")
+            return results
+        except Exception as e:
+            self.view.close_progress_dialog()
+            self.view.show_error("Loi xuat Excel hang loat", str(e))
+            return None
+
     def import_batch_with_preview(self, file_paths, khoa_id=None):
         if not file_paths: return
 

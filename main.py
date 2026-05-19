@@ -18,10 +18,13 @@ sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
 from db import Database
 from shared_data_dialog import SharedDataDialog
 import word_import
+from import_preview_dialog import ImportPreviewDialog
 from template_manager_dialog import TemplateManagerDialog
+from excel_template_manager_dialog import ExcelTemplateManagerDialog, ExcelTemplateChoiceDialog
 from statistics_dialog import StatisticsDialog
 from settings_dialog import SettingsDialog
 from version_history_dialog import VersionHistoryDialog
+from enterprise_schema_dialog import EnterpriseSchemaDialog
 from datetime import datetime
 import json
 from utils.threading_utils import run_threaded_task
@@ -55,6 +58,8 @@ from sections.sec13_cap_nhat import Sec13CapNhat
 from sections.base_section import setup_treeview_style, apply_theme, THEMES, set_window_icon, \
                                     CLR_BG, CLR_PRIMARY, CLR_PRIMARY2, CLR_TEXT, CLR_ACCENT, \
                                     CLR_SIDEBAR, CLR_SIDEBAR_FG, CLR_SIDEBAR_SEL
+from ui.theme.design_system import UI_THEME, setup_app_styles
+from ui.widgets.searchable_tree import apply_tree_defaults, restripe_tree
 
 
 APP_TITLE = 'APM System - Quản lý Đề cương Chi tiết Học phần | EPU'
@@ -94,6 +99,7 @@ class QLCTDTApp:
 
         # Bắt buộc sử dụng giao diện tối (Dark Mode)
         apply_theme('dark')
+        setup_app_styles()
         self.db.set_config('theme', 'dark')
         
         self._setup_style()
@@ -225,11 +231,14 @@ class QLCTDTApp:
         menubar.add_cascade(label='Export', menu=mexport)
         mexport.add_command(label='📤 Xuất Word (built-in)',     command=self.export_word_builtin)
         mexport.add_command(label='📤 Xuất Word (template)',     command=self.export_word_template)
+        mexport.add_command(label='Xuat Excel (template)', command=self.export_excel_template)
         mexport.add_separator()
         mexport.add_command(label='📚 Xuất hàng loạt (built-in)',command=lambda: self.export_bulk('builtin'))
         mexport.add_command(label='📚 Xuất hàng loạt (template)',command=lambda: self.export_bulk('template'))
 
         # Thống kê
+        mexport.add_command(label='Xuat Excel hang loat', command=self.export_excel_bulk)
+
         mstats = tk.Menu(menubar, tearoff=0)
         menubar.add_cascade(label='Thống kê', menu=mstats)
         mstats.add_command(label='📊 Thống kê & Báo cáo', command=self.open_statistics)
@@ -242,6 +251,8 @@ class QLCTDTApp:
         msys = tk.Menu(menubar, tearoff=0)
         menubar.add_cascade(label='Hệ thống', menu=msys)
         msys.add_command(label='📋 Quản lý Template Word', command=self.open_template_manager)
+        msys.add_command(label='Quan ly Template Excel', command=self.open_excel_template_manager)
+        msys.add_command(label='Enterprise schema / QA foundation', command=self.open_enterprise_schema)
         msys.add_separator()
         msys.add_command(label='⚙️ Thiết lập hệ thống', command=self.open_settings)
         msys.add_separator()
@@ -324,6 +335,7 @@ class QLCTDTApp:
         tree_frm.pack(fill='both', expand=True, pady=(2, 4))
 
         self.hp_tree = tb.Treeview(tree_frm, show='tree', bootstyle='primary', selectmode='extended')
+        apply_tree_defaults(self.hp_tree)
         self.hp_tree.column('#0', width=350, minwidth=200, stretch=True)
         
         vsb = tb.Scrollbar(tree_frm, orient='vertical', command=self.hp_tree.yview)
@@ -352,6 +364,8 @@ class QLCTDTApp:
         self._hp_ctx.add_command(label='📋 Sao chép học phần', command=self.clone_hp)
         self._hp_ctx.add_command(label='📤 Xuất Word',    command=self.export_word_builtin)
         self._hp_ctx.add_command(label='📚 Xuất Word nhiều mục', command=self.export_bulk)
+        self._hp_ctx.add_command(label='Xuat Excel', command=self.export_excel_template)
+        self._hp_ctx.add_command(label='Xuat Excel nhieu muc', command=self.export_excel_bulk)
         self.hp_tree.bind('<Button-3>', self._on_hp_right_click)
 
         # Count label
@@ -983,6 +997,42 @@ class QLCTDTApp:
         
         _TemplateChoiceDialog(self, self.current_hp_id)
 
+    def export_excel_template(self):
+        """Export current syllabus using a dynamic Excel template."""
+        if self.current_hp_id is None:
+            self.show_warning('Canh bao', 'Chua chon hoc phan nao.')
+            return
+        self.save_hp()
+        from services.excel_template_service import ExcelTemplateService
+        svc = ExcelTemplateService(self.db)
+        if not svc.get_all():
+            if self.ask_yesno('Chua co template Excel', 'Chua co template Excel. Mo man hinh quan ly template de tao/upload khong?'):
+                ExcelTemplateManagerDialog(self.root, self.db, self.current_hp_id)
+            return
+        ExcelTemplateChoiceDialog(self.root, self.db, self.current_hp_id)
+
+    def export_excel_bulk(self):
+        """Batch export selected syllabi using the default Excel template."""
+        sel = self.hp_tree.selection()
+        hp_ids = []
+        for iid in sel:
+            if iid in self._hp_id_map:
+                hid = self._hp_id_map[iid]
+                if hid not in hp_ids:
+                    hp_ids.append(hid)
+        if not hp_ids:
+            messagebox.showinfo('Thong bao', 'Vui long chon it nhat mot hoc phan de xuat Excel.')
+            return
+        from services.excel_template_service import ExcelTemplateService
+        svc = ExcelTemplateService(self.db)
+        if not svc.get_default():
+            show_modern_error(self.root, 'Chua co template mac dinh', 'Hay dat mot Excel template lam mac dinh truoc khi xuat hang loat.')
+            return
+        dir_path = filedialog.askdirectory(title='Chon thu muc luu cac file Excel')
+        if not dir_path:
+            return
+        self.controller.export_excel_batch(hp_ids, dir_path)
+
     def import_word_single(self):
         path = filedialog.askopenfilename(
             title='Chọn file Word đề cương',
@@ -1046,6 +1096,12 @@ class QLCTDTApp:
 
     def open_template_manager(self):
         TemplateManagerDialog(self.root, self.db)
+
+    def open_excel_template_manager(self):
+        ExcelTemplateManagerDialog(self.root, self.db, self.current_hp_id)
+
+    def open_enterprise_schema(self):
+        EnterpriseSchemaDialog(self.root, self.db)
 
     def refresh_ui(self):
         """Cập nhật lại toàn bộ nhãn giao diện dựa trên cấu hình mới nhất."""

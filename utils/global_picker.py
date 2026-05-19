@@ -3,6 +3,9 @@ import tkinter as tk
 from tkinter import ttk
 import ttkbootstrap as tb
 from ttkbootstrap.constants import *
+from ui.theme.design_system import UI_THEME
+from ui.widgets.dialog_base import configure_dialog
+from ui.widgets.searchable_tree import apply_tree_defaults, restripe_tree
 
 class BasePicker(tb.Toplevel):
     """Lớp nền cho các hộp thoại chọn dữ liệu từ DB."""
@@ -14,12 +17,11 @@ class BasePicker(tb.Toplevel):
         self.columns = columns or ("id", "name")
         self.headings = headings or ("ID", "Tên")
         
+        configure_dialog(self, master, width=820, height=600, min_width=680, min_height=460)
         self._build_ui()
-        self.position_center()
-        self.grab_set()
         
     def _build_ui(self):
-        container = tb.Frame(self, padding=15)
+        container = tb.Frame(self, padding=UI_THEME["dialog_padding"])
         container.pack(fill=BOTH, expand=YES)
         
         # Thanh tìm kiếm
@@ -32,6 +34,7 @@ class BasePicker(tb.Toplevel):
         
         # Bảng hiển thị
         self.tree = tb.Treeview(container, columns=self.columns, show='headings', bootstyle=INFO)
+        apply_tree_defaults(self.tree)
         self.tree.pack(fill=BOTH, expand=YES)
         
         for col, head in zip(self.columns, self.headings):
@@ -56,6 +59,7 @@ class BasePicker(tb.Toplevel):
         rows = self._fetch_data(search_text)
         for row in rows:
             self.tree.insert("", END, values=row)
+        restripe_tree(self.tree)
 
     def _fetch_data(self, search_text):
         """Hàm này cần được override bởi lớp con."""

@@ -10,6 +10,9 @@ except ImportError:
     HAS_TTKBOOTSTRAP = False
 import os
 import ctypes
+from ui.theme.design_system import UI_THEME, setup_app_styles
+from ui.widgets.dialog_base import configure_dialog
+from ui.widgets.searchable_tree import apply_tree_defaults, restripe_tree
 
 def set_window_icon(window):
     """Thiết lập logo cho cửa sổ."""
@@ -94,6 +97,7 @@ def apply_theme(theme_name):
         style.configure('.', font=('Arial', 10))
     
     setup_treeview_style()
+    setup_app_styles()
 
 
 # ─── ScrollableFrame ──────────────────────────────────────────────────────────
@@ -309,6 +313,7 @@ def setup_treeview_style():
     style.map('MyTree.Treeview', 
               background=[('selected', CLR_PRIMARY)],
               foreground=[('selected', 'white')])
+    setup_app_styles()
 
 
 def make_tree(parent, columns, headings, widths=None, show='headings', height=12, column_aligns=None, db=None, table_id=None, undo_manager=None, on_change=None):
@@ -319,7 +324,8 @@ def make_tree(parent, columns, headings, widths=None, show='headings', height=12
     """
     frame = tb.Frame(parent)
     tree = tb.Treeview(frame, columns=columns, show=show,
-                        style='MyTree.Treeview', height=height)
+                        style='App.Treeview', height=height)
+    apply_tree_defaults(tree)
     
     # Binding for Undo/Redo
     if undo_manager:
@@ -434,6 +440,7 @@ def make_tree(parent, columns, headings, widths=None, show='headings', height=12
     tree.tag_configure('group', background=CLR_HDR, foreground='white', font=('Arial', 10, 'bold'))
     tree.tag_configure('subgroup', background=CLR_PRIMARY2, foreground='white', font=('Arial', 10, 'bold'))
     tree.tag_configure('accent', foreground=CLR_ACCENT, font=('Arial', 10, 'bold'))
+    tree.restripe = lambda: restripe_tree(tree)
     
     return frame, tree
 
@@ -458,17 +465,15 @@ class RowEditDialog(tb.Toplevel):
         super().__init__(parent)
         set_window_icon(self)
         self.title(title)
-        self.resizable(True, True)
+        configure_dialog(self, parent, width=760, height=560, modal=True, resizable=True)
         self.result = None
         self._vars = {}
         self._texts = {}
         self.entries = {}
 
-        self.grab_set()
         self._build(fields, initial or {})
         if on_build:
             on_build(self)
-        self.transient(parent)
         self.wait_window()
 
     def _build(self, fields, initial):

@@ -118,13 +118,20 @@ class BaseRepository:
 
     def _validate_data(self, table: str, data: dict):
         """P3: Validation dữ liệu cơ bản trước khi lưu."""
-        # Ví dụ: Kiểm tra không được để trống các trường mã hoặc tên nếu có
-        required_substrings = ['ma', 'ten', 'ho_ten']
-        for k, v in data.items():
-            if any(sub in k for sub in required_substrings):
-                if v is None or (isinstance(v, str) and not v.strip()):
-                    logger.warning(f"Validation Warning: Field '{k}' in table '{table}' is empty.")
-                    # Tùy chọn: raise ValueError if critical
+        # Keep this narrow. Substring checks create false positives for
+        # optional fields like cdr_ma and ten_anh.
+        required_fields = {
+            'khoa': {'ten'},
+            'giang_vien': {'ho_ten'},
+            'hoc_phan': {'ten_viet'},
+            'clo': {'ma'},
+            'muc_tieu': {'mo_ta'},
+        }
+        for field in required_fields.get(table, set()):
+            if field in data:
+                value = data.get(field)
+                if value is None or (isinstance(value, str) and not value.strip()):
+                    logger.warning(f"Validation Warning: Field '{field}' in table '{table}' is empty.")
 
     def _safe_insert(self, table: str, data: dict) -> int:
         """

@@ -6,6 +6,8 @@ from utils.ui_utils import (show_modern_info, show_modern_warning,
                              show_modern_error, ask_modern_yesno)
 from ttkbootstrap.constants import *
 from sections.base_section import CLR_BG, CLR_TEXT, CLR_ROW1, set_window_icon
+from ui.theme.design_system import UI_THEME
+from ui.widgets.dialog_base import configure_dialog
 
 class SettingsDialog(tb.Toplevel):
     """Giao diện quản lý các tham số cấu hình hệ thống (Dữ liệu chung)."""
@@ -14,10 +16,8 @@ class SettingsDialog(tb.Toplevel):
         super().__init__(parent)
         set_window_icon(self)
         self.title('⚙️ Thiết lập hệ thống')
-        self.geometry('600x650')
         self.db = db
-        self.grab_set()
-        self.transient(parent)
+        configure_dialog(self, parent, width=720, height=680, min_width=640, min_height=520)
         
         # Danh sách các tham số muốn quản lý
         self.params = [
@@ -39,7 +39,7 @@ class SettingsDialog(tb.Toplevel):
     def _build_ui(self):
         # Tạo Notebook để chứa nhiều tab cài đặt
         nb = tb.Notebook(self)
-        nb.pack(fill='both', expand=True, padx=10, pady=10)
+        nb.pack(fill='both', expand=True, padx=UI_THEME["padding_x"], pady=UI_THEME["padding_y"])
 
         # Tab 1: Cấu hình chung
         tab1 = tb.Frame(nb, padding=10)
@@ -56,7 +56,7 @@ class SettingsDialog(tb.Toplevel):
             val = self.db.get_config(key, '')
             
             row = tb.Frame(content)
-            row.pack(fill='x', pady=8)
+            row.pack(fill='x', pady=UI_THEME["padding_y"])
             
             if key.startswith('sep'):
                 tb.Label(row, text=label, font=('Arial', 10, 'bold'), 
@@ -66,7 +66,7 @@ class SettingsDialog(tb.Toplevel):
             tb.Label(row, text=label, font=('Arial', 10)).pack(anchor='w')
             
             # Sử dụng Text cho các danh sách dài, Entry cho danh sách ngắn
-            ent = tb.Entry(row, font=('Arial', 10))
+            ent = tb.Entry(row)
             # Gán giá trị mặc định nếu rỗng cho các trường viết tắt
             if not val:
                 defaults = {

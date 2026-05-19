@@ -10,6 +10,8 @@ import tkinter as tk
 from tkinter import messagebox
 import ttkbootstrap as tb
 from ttkbootstrap.constants import *
+from ui.widgets.dialog_base import configure_dialog
+from ui.widgets.searchable_tree import apply_tree_defaults, restripe_tree
 
 
 class VersionHistoryDialog(tb.Toplevel):
@@ -31,13 +33,7 @@ class VersionHistoryDialog(tb.Toplevel):
         self.svc = VersionService(db)
 
         self.title(f"📜 Lịch sử phiên bản — HP #{hp_id}")
-        self.geometry("860x560")
-        self.minsize(640, 400)
-        self.transient(parent)
-        self.grab_set()
-        self.resizable(True, True)
-
-        self._center()
+        configure_dialog(self, parent, width=860, height=560, min_width=640, min_height=400)
         self._build_ui()
         self._refresh()
 
@@ -71,6 +67,7 @@ class VersionHistoryDialog(tb.Toplevel):
             columns=('ver', 'name', 'date'),
             show='headings', height=16, bootstyle='primary'
         )
+        apply_tree_defaults(self.tree)
         self.tree.heading('ver', text='#')
         self.tree.heading('name', text='Tên phiên bản')
         self.tree.heading('date', text='Ngày tạo')
@@ -129,6 +126,7 @@ class VersionHistoryDialog(tb.Toplevel):
         for v in self._versions:
             self.tree.insert('', 'end', iid=str(v['id']),
                              values=(v['version_no'], v['ten_phien'][:25], (v['ngay_tao'] or '')[:10]))
+        restripe_tree(self.tree)
 
     def _get_selected_id(self) -> int:
         sel = self.tree.selection()

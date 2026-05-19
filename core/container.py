@@ -28,6 +28,8 @@ class AppContainer:
         self._db = None
         self._cache = None
         self._template_svc = None
+        self._excel_template_svc = None
+        self._excel_export_svc = None
         self._version_svc = None
         self._stats_svc = None
         self._worker_pool = None
@@ -35,6 +37,7 @@ class AppContainer:
         self._validation_svc = None
         self._deccuong_svc = None
         self._course_crud_svc = None
+        self._enterprise_schema_svc = None
         
         # Repositories
         self._hp_repo = None
@@ -51,6 +54,7 @@ class AppContainer:
         self._import_history_repo = None
         self._ui_meta_repo = None
         self._statistics_repo = None
+        self._enterprise_repo = None
 
 
     # ── Data Layer ────────────────────────────────────────────────────────────
@@ -98,6 +102,22 @@ class AppContainer:
         return self._template_svc
 
     @property
+    def excel_template_svc(self):
+        """Lazy ExcelTemplateService."""
+        if self._excel_template_svc is None:
+            from services.excel_template_service import ExcelTemplateService
+            self._excel_template_svc = ExcelTemplateService(self.db)
+        return self._excel_template_svc
+
+    @property
+    def excel_export_svc(self):
+        """Lazy ExcelExportService."""
+        if self._excel_export_svc is None:
+            from services.excel_export_service import ExcelExportService
+            self._excel_export_svc = ExcelExportService(self.db)
+        return self._excel_export_svc
+
+    @property
     def version_svc(self):
         """Lazy VersionService."""
         if self._version_svc is None:
@@ -136,6 +156,14 @@ class AppContainer:
             from services.course_crud_service import CourseCRUDService
             self._course_crud_svc = CourseCRUDService(self.hp_repo)
         return self._course_crud_svc
+
+    @property
+    def enterprise_schema_svc(self):
+        """Lazy EnterpriseSchemaService."""
+        if self._enterprise_schema_svc is None:
+            from services.enterprise_schema_service import EnterpriseSchemaService
+            self._enterprise_schema_svc = EnterpriseSchemaService(self.db)
+        return self._enterprise_schema_svc
 
     # ── Repositories ──────────────────────────────────────────────────────────
 
@@ -229,6 +257,13 @@ class AppContainer:
             from repositories.statistics_repository import StatisticsRepository
             self._statistics_repo = StatisticsRepository(self.db)
         return self._statistics_repo
+
+    @property
+    def enterprise_repo(self):
+        if self._enterprise_repo is None:
+            from repositories.enterprise_repository import EnterpriseRepository
+            self._enterprise_repo = EnterpriseRepository(self.db)
+        return self._enterprise_repo
 
 
     # ── Lifecycle ─────────────────────────────────────────────────────────────

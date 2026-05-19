@@ -4,6 +4,8 @@ from tkinter import ttk
 import ttkbootstrap as tb
 import queue
 import time
+from ui.theme.design_system import UI_THEME
+from ui.widgets.dialog_base import configure_dialog
 
 class BackgroundTask:
     """
@@ -24,27 +26,16 @@ class BackgroundTask:
         # Create Progress Dialog
         self.dialog = tb.Toplevel(parent)
         self.dialog.title(title)
-        self.dialog.geometry("450x180")
-        self.dialog.resizable(False, False)
-        self.dialog.grab_set() # Modal
-        self.dialog.transient(parent)
-        
-        # Center dialog
-        self.dialog.update_idletasks()
-        w = self.dialog.winfo_width()
-        h = self.dialog.winfo_height()
-        extra_x = (self.dialog.winfo_screenwidth() - w) // 2
-        extra_y = (self.dialog.winfo_screenheight() - h) // 2
-        self.dialog.geometry(f"+{extra_x}+{extra_y}")
+        configure_dialog(self.dialog, parent, width=460, height=180, min_width=420, min_height=160, resizable=False)
         
         # UI Elements
-        self.lbl_status = tb.Label(self.dialog, text="Đang chuẩn bị...", font=("Arial", 10))
+        self.lbl_status = tb.Label(self.dialog, text="Đang chuẩn bị...", font=UI_THEME["font_main"])
         self.lbl_status.pack(pady=(20, 5), padx=20, anchor="w")
         
         self.progress = tb.Progressbar(self.dialog, mode='determinate', bootstyle="info-striped")
         self.progress.pack(fill="x", padx=20, pady=10)
         
-        self.lbl_detail = tb.Label(self.dialog, text="", font=("Arial", 9), foreground="gray")
+        self.lbl_detail = tb.Label(self.dialog, text="", style="Muted.TLabel")
         self.lbl_detail.pack(padx=20, anchor="w")
         
         # Start thread

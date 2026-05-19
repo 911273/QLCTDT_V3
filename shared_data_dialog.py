@@ -4,9 +4,10 @@ import ttkbootstrap as tb
 from sections.base_section import make_tree, RowEditDialog, CLR_PRIMARY2, set_window_icon
 from utils.ui_utils import (show_modern_info, show_modern_warning, 
                              show_modern_error, ask_modern_yesno)
-import openpyxl
 from tkinter import filedialog
 from utils.data_utils import natural_sort_key
+from ui.theme.design_system import UI_THEME
+from ui.widgets.dialog_base import configure_dialog
 
 
 KHOI_KIEN_THUC = ['Đại cương', 'Cơ sở ngành', 'Ngành', 'Chuyên ngành', 'Khác']
@@ -17,16 +18,13 @@ class SharedDataDialog(tb.Toplevel):
         super().__init__(parent)
         set_window_icon(self)
         self.title('Quản lý Dữ liệu Chung')
-        self.geometry('1100x750')
-        self.resizable(True, True)
         self.db = db
-        self.grab_set()
+        configure_dialog(self, parent, width=1100, height=750, min_width=920, min_height=620)
         self._build()
-        self.transient(parent)
 
     def _build(self):
         nb = tb.Notebook(self)
-        nb.pack(fill='both', expand=True, padx=8, pady=8)
+        nb.pack(fill='both', expand=True, padx=UI_THEME["padding_x"], pady=UI_THEME["padding_y"])
 
         self._build_khoa_tab(nb)
         self._build_hp_tab(nb)
@@ -659,6 +657,12 @@ class SharedDataDialog(tb.Toplevel):
         path = filedialog.askopenfilename(title=title, filetypes=[("Excel files", "*.xlsx")])
         if not path: return None
         
+        try:
+            import openpyxl
+        except ModuleNotFoundError:
+            show_modern_error(self, "Lỗi", "Không tìm thấy thư viện openpyxl. Cài đặt bằng pip install openpyxl.")
+            return None
+
         try:
             wb = openpyxl.load_workbook(path, data_only=True)
             ws = wb.active

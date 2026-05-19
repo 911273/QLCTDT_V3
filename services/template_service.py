@@ -628,7 +628,9 @@ class TemplateEngine:
             return {'valid': False, 'errors': ['docxtpl chưa được cài đặt'], 'placeholders': []}
 
         try:
-            tpl = DocxTemplate(template_path)
+            from io import BytesIO
+            with open(template_path, 'rb') as fh:
+                tpl = DocxTemplate(BytesIO(fh.read()))
             # Lấy toàn bộ text một cách an toàn
             full_text = ""
             doc = tpl.get_docx()
@@ -701,6 +703,15 @@ class TemplateService:
         ).fetchone()
         return dict(row) if row else None
 
+    def _get_unique_destination(self, filename: str) -> str:
+        base, ext = os.path.splitext(filename)
+        candidate = os.path.join(TEMPLATE_DIR, filename)
+        counter = 1
+        while os.path.exists(candidate):
+            candidate = os.path.join(TEMPLATE_DIR, f"{base} ({counter}){ext}")
+            counter += 1
+        return candidate
+
     def upload(self, source_path: str, ten: str, mo_ta: str = '') -> int:
         """
         Upload template file vào thư mục word_templates/ và lưu metadata vào DB.
@@ -708,13 +719,19 @@ class TemplateService:
         """
         _ensure_template_dir()
         filename = os.path.basename(source_path)
-        dest = os.path.join(TEMPLATE_DIR, filename)
+        dest = self._get_unique_destination(filename)
 
         # Validate trước khi upload
         validation = self.engine.validate_template(source_path)
 
         # Copy file
-        shutil.copy2(source_path, dest)
+        try:
+            shutil.copy2(source_path, dest)
+        except PermissionError as exc:
+            raise RuntimeError(
+                "Không thể upload file. Hãy đóng file nếu nó đang mở trong Word hoặc ứng dụng khác, "
+                f"và thử lại. Chi tiết: {exc}"
+            ) from exc
 
         placeholders_json = json.dumps(
             [p['key'] for p in validation['placeholders']],

@@ -41,10 +41,15 @@ def run_migrations(db):
         _migration_v16,
         # v17: Add missing columns to hoc_lieu (Section 5)
         _migration_v17,
+        # v18: Dynamic Excel template registry
+        _migration_v18,
+        # v19: Enterprise academic QA schema foundation
+        _migration_v19,
     ]
     
     for i, patch_fn in enumerate(patches):
-        v_target = i + 1
+        # Baseline schema is version 1; the first incremental patch is v2.
+        v_target = i + 2
         if current_v < v_target:
             print(f"Applying migration to version {v_target}...")
             with db.transaction():
@@ -606,3 +611,38 @@ def _migration_v17(db):
         print("_migration_v17 completed successfully.")
     except Exception as e:
         print(f"Error in _migration_v17: {e}")
+
+
+def _migration_v18(db):
+    """Create Excel template registry for dynamic .xlsx exports."""
+    print("Running _migration_v18 (excel_template registry)...")
+    try:
+        db.conn.execute("""
+            CREATE TABLE IF NOT EXISTS excel_template (
+                id INTEGER PRIMARY KEY AUTOINCREMENT,
+                ten TEXT NOT NULL,
+                mo_ta TEXT,
+                file_path TEXT NOT NULL,
+                placeholders TEXT,
+                la_mac_dinh INTEGER DEFAULT 0,
+                created_at TEXT,
+                updated_at TEXT
+            )
+        """)
+        db.conn.execute("CREATE INDEX IF NOT EXISTS idx_excel_template_default ON excel_template(la_mac_dinh)")
+        print("_migration_v18 completed successfully.")
+    except Exception as e:
+        print(f"Error in _migration_v18: {e}")
+
+
+def _migration_v19(db):
+    """Install metadata-driven enterprise academic QA schema."""
+    print("Running _migration_v19 (enterprise academic schema)...")
+    try:
+        from core.enterprise_schema import apply_enterprise_schema_upgrade
+
+        result = apply_enterprise_schema_upgrade(db)
+        print(f"_migration_v19 completed successfully: {result}")
+    except Exception as e:
+        print(f"Error in _migration_v19: {e}")
+        raise

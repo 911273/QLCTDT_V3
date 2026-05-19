@@ -5,6 +5,7 @@ __pycache__/
 *.db-shm
 *.db-wal
 backups/
+scratch/
 .vscode/
 .idea/
 .venv/
@@ -12,3 +13,4 @@ venv/
 env/
 *.log
 ~$*.docx
+~$*.xlsx

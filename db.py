@@ -252,6 +252,17 @@ CREATE TABLE IF NOT EXISTS word_template (
     ngay_tao    TEXT
 );
 
+CREATE TABLE IF NOT EXISTS excel_template (
+    id              INTEGER PRIMARY KEY AUTOINCREMENT,
+    ten             TEXT NOT NULL,
+    mo_ta           TEXT,
+    file_path       TEXT NOT NULL,
+    placeholders    TEXT,
+    la_mac_dinh     INTEGER DEFAULT 0,
+    created_at      TEXT,
+    updated_at      TEXT
+);
+
 CREATE TABLE IF NOT EXISTS rubric_danh_gia (
     id          INTEGER PRIMARY KEY AUTOINCREMENT,
     hp_id       INTEGER REFERENCES hoc_phan(id) ON DELETE CASCADE,
@@ -519,8 +530,14 @@ class Database:
         run_migrations(self)
 
     def close(self):
-        if self.conn:
-            self.conn.close()
+        with self._lock:
+            if self.conn:
+                try:
+                    if self.conn.in_transaction:
+                        self.conn.commit()
+                finally:
+                    self.conn.close()
+                    self.conn = None
 
     def backup(self, dest_path):
         """Sao lưu file database hiện tại ra vị trí khác."""
@@ -528,8 +545,11 @@ class Database:
             # Tạo thư mục nếu chưa có
             os.makedirs(os.path.dirname(dest_path), exist_ok=True)
             # Dùng sqlite3 backup API để đảm bảo tính nhất quán ngay cả khi đang có người đọc
-            with sqlite3.connect(dest_path) as b_conn:
+            b_conn = sqlite3.connect(dest_path)
+            try:
                 self.conn.backup(b_conn)
+            finally:
+                b_conn.close()
             return True
         except Exception as e:
             logger.error(f"Lỗi sao lưu: {e}")

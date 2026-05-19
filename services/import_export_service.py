@@ -6,11 +6,13 @@ from concurrent.futures import ThreadPoolExecutor, as_completed
 
 from services.template_service import TemplateEngine
 from services.word_export_service import export_dccthp
+from services.excel_export_service import ExcelExportService
 
 class ImportExportService:
     def __init__(self, db):
         self.db = db
         self.tpl_engine = TemplateEngine(db)
+        self.excel_export = ExcelExportService(db)
 
     def export_word_builtin(self, hp_id, out_path):
         data = self.tpl_engine.build_context(hp_id)
@@ -46,6 +48,14 @@ class ImportExportService:
             user_action=f'Export {len(hp_ids)} học phần to {dir_path}'
         )
         return results
+
+    def export_excel_template(self, hp_id, out_path, template_id=None):
+        if template_id:
+            return self.excel_export.export_with_template(hp_id, template_id, out_path)
+        return self.excel_export.export_with_default(hp_id, out_path)
+
+    def export_excel_batch(self, hp_ids, dir_path, template_id=None, progress_callback=None):
+        return self.excel_export.export_batch(hp_ids, dir_path, template_id, progress_callback)
 
     def import_word_single(self, file_path):
         parsed = word_import.parse_docx(file_path)
